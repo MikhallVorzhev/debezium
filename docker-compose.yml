@@ -12,10 +12,13 @@ services:
       - "9092:9092"
     environment:
       - ZOOKEEPER_CONNECT=zookeeper:2181
+    depends_on:
+      - zookeeper
   database:
     image: quay.io/debezium/example-mysql:3.0
     ports:
-      - "3306:3306"
+      - "13306:3306"
+
     environment:
       MYSQL_ROOT_PASSWORD: debezium
       MYSQL_USER:          mysqluser
@@ -30,26 +33,25 @@ services:
       - CONFIG_STORAGE_TOPIC=my_connect_configs 
       - OFFSET_STORAGE_TOPIC=my_connect_offsets
       - STATUS_STORAGE_TOPIC=my_connect_statuses
+    depends_on:
+      - kafka
+  
 
-
-# Get connector list 
-# curl -H "Accept:application/json" localhost:8083/connectors/
-# curl -s -X GET -H "Accept:application/json" localhost:8083/connectors/inventory-connector | jq
-
-# Connect to db
-# > docker compose exec -it <container_name> bash
-# Enter sql
-# > mysql -hlocalhost -P3306 -uroot -pdebezium
-# use table inventory
-# > use inventory;
-# show tables in database inventory
-# > show tables;
-# show all data in table customers
-# > SELECT * FROM customers;
-# update one entity
-# > UPDATE customers SET first_name='Anne Marie' WHERE id=1004;
-
-# get kafka entities. run it from container 
-# > kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic dbserver1.inventory.customers --from-beginning
-# Either use this command:
-# docker compose exec -it kafka sh -c "./bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic dbserver1.inventory.customers --from-beginning" | jq
+  db:
+    image: postgres:17.4
+    # restart: always
+    # set shared memory limit when using docker-compose
+    shm_size: 128mb
+    # or set shared memory limit when deploy via swarm stack
+    #volumes:
+    #  - type: tmpfs
+    #    target: /dev/shm
+    #    tmpfs:
+    #      size: 134217728 # 128*2^20 bytes = 128Mb
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_PASSWORD: pg_pass
+    volumes:
+      - ./pg.config:/etc/postgresql/postgresql.conf
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
